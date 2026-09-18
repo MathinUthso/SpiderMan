@@ -1,5 +1,13 @@
 # Interpreter plan (internal docs)
 InterpreterPlan.md
+# Secrets — never commit these
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets.json
+credentials.json
 
 # Python
 __pycache__/
@@ -18,3 +26,36 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+ENV/
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs & scratch
+*.log
+logs/
+scratch/
+tmp/

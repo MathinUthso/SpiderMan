@@ -1,2 +1,0 @@
-## BUP Hackathon ## 
-Grid optmizer
