@@ -15,9 +15,13 @@ services:
         sync: false
       - key: GEMINI_MODEL
         value: gemini-3.5-flash-lite
+      - key: GEMINI_FALLBACK_MODEL
+        value: gemini-3.5-flash
       - key: GROQ_MODEL
         value: openai/gpt-oss-120b
       - key: LLM_TIMEOUT_S
-        value: "8"
+        value: "12"
+      - key: INTERPRET_BUDGET_S
+        value: "22"
       - key: LOG_LEVEL
         value: INFO

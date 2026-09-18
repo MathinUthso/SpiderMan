@@ -20,7 +20,7 @@ HTTP codes: `200` success · `400` malformed JSON or structurally invalid reques
 ## Quickstart (clean machine)
 
 ```bash
-git clone <repo-url> gridwise && cd gridwise
+git clone https://github.com/MathinUthso/SpiderMan.git gridwise && cd gridwise
 python -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env                               # then put your keys in .env (never commit it)
@@ -60,8 +60,8 @@ If both keys are missing or both providers fail, the service still answers `200`
 ## Docker (fallback execution path)
 
 ```bash
-docker pull ghcr.io/cord1ess/gridwise:v1
-docker run --rm -p 8000:8000 -e GEMINI_API_KEY=... -e GROQ_API_KEY=... ghcr.io/cord1ess/gridwise:v1
+docker pull ghcr.io/mathinuthso/gridwise:v1
+docker run --rm -p 8000:8000 -e GEMINI_API_KEY=... -e GROQ_API_KEY=... ghcr.io/mathinuthso/gridwise:v1
 curl -s http://localhost:8000/health
 ```
 
@@ -70,7 +70,7 @@ Image: `python:3.12-slim`, non-root user, `EXPOSE 8000`, binds `0.0.0.0`, no bak
 ## Tests
 
 ```bash
-python -m pytest -q                       # 44 tests: public cases, validator, guardrails, API contract
+pip install -r requirements-dev.txt && python -m pytest -q   # public cases, validator, guardrails, optimizer edges, provider chain, API
 python scripts/check_optimizer.py         # 10/10 public cases: cost == reference ±0.01, validator clean
 python scripts/check_api.py --no-llm      # full HTTP path with the LLM forced to fail -> still valid 200s
 python scripts/check_interpreter.py       # live LLM: 18/18 public notes must match (needs .env)
