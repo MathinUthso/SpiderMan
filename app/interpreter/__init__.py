@@ -5,6 +5,7 @@ Provider chain: cache -> Gemini -> Groq -> degraded (all no_op). Never raises.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 
@@ -24,13 +25,22 @@ async def interpret(notes: list[str], battery: dict) -> tuple[list[dict], bool]:
 
     for name, call in PROVIDERS:
         t0 = time.perf_counter()
-        try:
-            raw = await call(notes, battery)
-        except ProviderError as exc:
-            log.warning("provider %s failed: %s", name, exc)
-            continue
-        except Exception as exc:  # timeouts, network, anything unexpected
-            log.warning("provider %s error: %s", name, type(exc).__name__)
+        raw = None
+        for attempt in (1, 2):
+            try:
+                raw = await call(notes, battery)
+                break
+            except ProviderError as exc:
+                log.warning("provider %s failed (attempt %d): %s", name, attempt, exc)
+                # One quick retry only for rate limits / server errors; never for timeouts or bad output.
+                if attempt == 1 and ("HTTP 429" in str(exc) or "HTTP 5" in str(exc)):
+                    await asyncio.sleep(1.0)
+                    continue
+                break
+            except Exception as exc:  # timeouts, network, anything unexpected
+                log.warning("provider %s error: %s", name, type(exc).__name__)
+                break
+        if raw is None:
             continue
         directives = validate_llm_output(raw, len(notes), battery)
         log.info("provider %s ok in %.2fs", name, time.perf_counter() - t0)
