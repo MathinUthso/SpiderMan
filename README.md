@@ -43,7 +43,7 @@ EOF
 
 Expected for SAMPLE-01: `total_cost_bdt` **38365.0**, two `directive_interpretation` entries (`solar_reduction` hours `[12, 13]` factor `0.25`, then `no_op`), 24 `hourly_plan` rows, `battery_energy_after_kwh` at hour 23 equal to `110`.
 
-## Environment variables (names only — values are never committed)
+## Environment variables 
 
 | Name | Purpose | Default |
 |---|---|---|
