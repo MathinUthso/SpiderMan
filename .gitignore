@@ -1,5 +1,3 @@
-# Interpreter plan (internal docs)
-InterpreterPlan.md
 # Secrets — never commit these
 .env
 .env.*
@@ -9,26 +7,12 @@ InterpreterPlan.md
 secrets.json
 credentials.json
 
-# Interpreter plan (internal docs)
+# Internal planning notes
 InterpreterPlan.md
 
 # Python
 __pycache__/
 *.py[cod]
-*.egg-info/
-dist/
-build/
-.eggs/
-venv/
-.env
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
 *$py.class
 *.so
 .Python
