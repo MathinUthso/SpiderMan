@@ -1,6 +1,8 @@
 """LLM provider calls. Each returns the parsed JSON dict or raises ProviderError.
 
 Owner: Teammate 1 (model choice, request tuning). Keep signatures stable.
+
+Provider chain: google-genai SDK (primary) → raw HTTP (fallback) → Groq → degraded.
 """
 
 from __future__ import annotations
@@ -42,11 +44,44 @@ def _extract_json(text: str) -> dict:
         raise ProviderError(f"non-JSON model output: {exc.msg}") from exc
 
 
-async def gemini(notes: list[str], battery: dict) -> dict:
+async def _gemini_sdk(notes: list[str], battery: dict) -> dict:
+    """Primary Gemini call using google-genai SDK with structured output."""
+    try:
+        from google import genai
+    except ImportError:
+        raise ProviderError("google-genai SDK not installed")
+
     key = os.getenv("GEMINI_API_KEY")
     if not key:
         raise ProviderError("GEMINI_API_KEY not set")
-    model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+
+    model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+    user_msg = build_user_message(notes, battery)
+
+    client = genai.Client(api_key=key)
+    response = client.models.generate_content(
+        model=model,
+        contents=user_msg,
+        config={
+            "system_instruction": SYSTEM_PROMPT,
+            "response_mime_type": "application/json",
+            "response_schema": dict,
+            "temperature": 0,
+        },
+    )
+
+    raw = response.text
+    if not raw:
+        raise ProviderError("gemini SDK returned empty response")
+    return _extract_json(raw)
+
+
+async def _gemini_http(notes: list[str], battery: dict) -> dict:
+    """Fallback Gemini call using raw HTTP (no SDK dependency)."""
+    key = os.getenv("GEMINI_API_KEY")
+    if not key:
+        raise ProviderError("GEMINI_API_KEY not set")
+    model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
     body = {
         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
         "contents": [{"role": "user", "parts": [{"text": build_user_message(notes, battery)}]}],
@@ -65,6 +100,15 @@ async def gemini(notes: list[str], battery: dict) -> dict:
     except (KeyError, IndexError, TypeError) as exc:
         raise ProviderError("gemini response missing text") from exc
     return _extract_json(text)
+
+
+async def gemini(notes: list[str], battery: dict) -> dict:
+    """Gemini provider: try SDK first, fallback to HTTP."""
+    try:
+        return await _gemini_sdk(notes, battery)
+    except Exception as exc:
+        log.warning("gemini SDK failed, trying HTTP: %s", exc)
+    return await _gemini_http(notes, battery)
 
 
 async def groq(notes: list[str], battery: dict) -> dict:

@@ -66,7 +66,11 @@ def _adjustment(t: str, rec: dict, battery: dict) -> dict | None:
 
 
 def validate_llm_output(raw: Any, n_notes: int, battery: dict) -> list[dict]:
-    """Return exactly n_notes directive entries in note_index order, all guardrails enforced."""
+    """Return exactly n_notes directive entries in note_index order, all guardrails enforced.
+
+    On any validation failure, the affected note degrades to no_op rather than crashing.
+    This ensures the pipeline always produces a valid response.
+    """
     records: dict[int, dict] = {}
     items = raw.get("interpretations") if isinstance(raw, dict) else raw
     if isinstance(items, list):
@@ -93,7 +97,12 @@ def validate_llm_output(raw: Any, n_notes: int, battery: dict) -> list[dict]:
             out.append(_no_op(i, "Unsupported directive type returned by the model; treated as no_op."))
             continue
         if t == "no_op":
+            # T1 fix: no_op must have applies=false
             out.append(_no_op(i, expl or "This note does not affect today's energy schedule."))
+            continue
+        # Non-no_op: applies must be true
+        if rec.get("applies") is not True:
+            out.append(_no_op(i, f"Directive type {t} must have applies=true; treated as no_op."))
             continue
         adj = _adjustment(t, rec, battery)
         if adj is None:

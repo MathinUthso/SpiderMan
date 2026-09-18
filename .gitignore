@@ -9,6 +9,9 @@ InterpreterPlan.md
 secrets.json
 credentials.json
 
+# Interpreter plan (internal docs)
+InterpreterPlan.md
+
 # Python
 __pycache__/
 *.py[cod]
