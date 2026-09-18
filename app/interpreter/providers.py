@@ -46,7 +46,7 @@ async def gemini(notes: list[str], battery: dict) -> dict:
     key = os.getenv("GEMINI_API_KEY")
     if not key:
         raise ProviderError("GEMINI_API_KEY not set")
-    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
     body = {
         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
         "contents": [{"role": "user", "parts": [{"text": build_user_message(notes, battery)}]}],

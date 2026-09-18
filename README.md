@@ -49,7 +49,7 @@ Expected for SAMPLE-01: `total_cost_bdt` **38365.0**, two `directive_interpretat
 |---|---|---|
 | `GEMINI_API_KEY` | Primary LLM (Google AI Studio free tier) | — |
 | `GROQ_API_KEY` | Fallback LLM, different vendor | — |
-| `GEMINI_MODEL` | Gemini model id | `gemini-2.5-flash` |
+| `GEMINI_MODEL` | Gemini model id | `gemini-3.5-flash-lite` |
 | `GROQ_MODEL` | Groq model id | `openai/gpt-oss-120b` |
 | `LLM_TIMEOUT_S` | Per-provider timeout (seconds) | `8` |
 | `LOG_LEVEL` | Logging level | `INFO` |
@@ -98,7 +98,7 @@ Render free web service (`render.yaml`): `uvicorn app.main:app --host 0.0.0.0 --
 
 ## Dependencies & credits
 
-FastAPI, Uvicorn, Pydantic, SciPy (HiGHS), NumPy, httpx, python-dotenv, pytest. Language models: Google Gemini (`gemini-2.5-flash`) and Groq (`openai/gpt-oss-120b`). Core architecture, optimizer, validator and guardrails are the team's own work; AI coding assistants were used during development.
+FastAPI, Uvicorn, Pydantic, SciPy (HiGHS), NumPy, httpx, python-dotenv, pytest. Language models: Google Gemini (`gemini-3.5-flash-lite`) and Groq (`openai/gpt-oss-120b`). Core architecture, optimizer, validator and guardrails are the team's own work; AI coding assistants were used during development.
 
 ## Secret handling
 

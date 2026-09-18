@@ -14,7 +14,7 @@ services:
       - key: GROQ_API_KEY
         sync: false
       - key: GEMINI_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.5-flash-lite
       - key: GROQ_MODEL
         value: openai/gpt-oss-120b
       - key: LLM_TIMEOUT_S
