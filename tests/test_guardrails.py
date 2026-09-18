@@ -46,6 +46,13 @@ def test_missing_duplicate_and_extra_indices() -> None:
     assert all(d["directive_type"] == "no_op" for d in out)
 
 
+def test_applies_false_normalized_to_true() -> None:
+    d = _one({"note_index": 0, "applies": False, "directive_type": "no_charge_window", "hours": [5], "explanation": "x"})
+    assert d["directive_type"] == "no_charge_window"
+    assert d["applies"] is True
+    assert d["structured_adjustment"] == {"hours": [5]}
+
+
 def test_garbage_input_yields_all_no_op() -> None:
     for raw in (None, "text", 42, {"interpretations": "nope"}, []):
         out = validate_llm_output(raw, 2, BATTERY)

@@ -1,6 +1,6 @@
 """CONTRACT A: interpret(notes, battery) -> (directives, degraded).
 
-Provider chain: cache -> Gemini -> Groq -> degraded (all no_op). Never raises.
+Provider chain: cache -> Gemini HTTP -> Groq -> degraded (all no_op). Never raises.
 """
 
 from __future__ import annotations
