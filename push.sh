@@ -25,6 +25,12 @@ if git diff --cached --quiet; then
   exit 0
 fi
 
+BRANCH="$(git branch --show-current)"
+if [ "$BRANCH" = "main" ]; then
+  echo "refusing to push directly to main; create a feature branch first" >&2
+  exit 1
+fi
+
 git commit -m "$MSG"
-git push origin main
-echo "pushed: $MSG"
+git push -u origin "$BRANCH"
+echo "pushed to $BRANCH: $MSG"
