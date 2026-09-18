@@ -100,10 +100,8 @@ def validate_llm_output(raw: Any, n_notes: int, battery: dict) -> list[dict]:
             # T1 fix: no_op must have applies=false
             out.append(_no_op(i, expl or "This note does not affect today's energy schedule."))
             continue
-        # Non-no_op: applies must be true
-        if rec.get("applies") is not True:
-            out.append(_no_op(i, f"Directive type {t} must have applies=true; treated as no_op."))
-            continue
+        # Non-no_op: applies is implicitly true — normalize rather than discard
+        # if the model mislabels applies on a valid directive.
         adj = _adjustment(t, rec, battery)
         if adj is None:
             out.append(_no_op(i, "Directive values failed validation; treated as no_op to avoid inventing constraints."))
