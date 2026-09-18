@@ -131,6 +131,7 @@ HTTP codes: `200` success · `400` malformed JSON or structurally invalid reques
 ## Environment Variables
 
 Names only — values are never committed.
+## Environment variables 
 
 | Name | Purpose | Default |
 |---|---|---|
