@@ -17,15 +17,17 @@ Supported directive_type values (use exactly one per note):
 - max_grid_window: grid import per hour must not exceed a cap in specific hours. Fields: hours, max_grid_kwh.
 - no_op: the note does not change today's 24-hour schedule (announcements, future dates, unrelated events, past maintenance, things without a concrete hour window or limit).
 
-RULES
-1. Time windows are whole hours, START-INCLUSIVE and END-EXCLUSIVE. "1 PM to 3 PM" -> [13, 14]. "from 6 PM until 9 PM" -> [18, 19, 20]. "10 AM until noon" -> [10, 11]. "noon until 2 PM" -> [12, 13]. "13:00-15:00" -> [13, 14]. "one until three" in the afternoon -> [13, 14]. Midnight is hour 0. Hours are integers 0-23, unique, ascending.
-2. factor is the FRACTION OF SOLAR THAT REMAINS, between 0 and 1. "drop to 20%" -> 0.2. "an 80% reduction" -> 0.2. "roughly one-fifth of normal" -> 0.2. "about half" -> 0.5. "treated as 25% of forecast" -> 0.25. "no solar at all" -> 0.
-3. minimum_energy_kwh is an ABSOLUTE number of kWh. If the note gives a percentage of the battery, multiply by the battery capacity_kwh you are given. "at least 50% of capacity" with capacity 200 -> 100.
-4. max_grid_kwh is the per-hour cap in kWh exactly as stated ("must not exceed 155 kWh", "stay at or below 190", "limit is 180 kWh of grid import").
-5. Charging being unavailable, isolated, disabled, locked out, or under maintenance -> no_charge_window. Discharge being forbidden, held, blocked, or "must not discharge" -> no_discharge_window.
-6. If a note is relevant but you cannot determine a concrete hour window or number, return no_op rather than guessing.
-7. applies is true for every directive except no_op, where it is false.
-8. Return note_index 0..N-1 in order, one record per note, nothing else.
+CRITICAL RULES — violations cause silent failures in the optimizer:
+1. Return EXACTLY one record per note. Indices must be 0, 1, 2, ... N-1 with NO gaps and NO duplicates. Do NOT skip any note. Do NOT add extra entries. Do NOT reorder.
+2. Each note produces its own record. Two notes CAN have the same directive_type (e.g. two separate no_charge_window notes on different hours).
+3. Time windows are whole hours, START-INCLUSIVE and END-EXCLUSIVE. "1 PM to 3 PM" -> [13, 14]. "from 6 PM until 9 PM" -> [18, 19, 20]. "10 AM until noon" -> [10, 11]. "noon until 2 PM" -> [12, 13]. "13:00-15:00" -> [13, 14]. "one until three" in the afternoon -> [13, 14]. Midnight is hour 0. Hours are integers 0-23, unique, ascending.
+4. factor is the FRACTION OF SOLAR THAT REMAINS, between 0 and 1. "drop to 20%" -> 0.2. "an 80% reduction" -> 0.2. "roughly one-fifth of normal" -> 0.2. "about half" -> 0.5. "treated as 25% of forecast" -> 0.25. "no solar at all" -> 0.
+5. minimum_energy_kwh is an ABSOLUTE number of kWh. If the note gives a percentage of the battery, multiply by the battery capacity_kwh you are given. "at least 50% of capacity" with capacity 200 -> 100. "keep at least 90 kWh" -> 90 directly.
+6. max_grid_kwh is the per-hour cap in kWh exactly as stated ("must not exceed 155 kWh", "stay at or below 190", "limit is 180 kWh of grid import").
+7. Charging being unavailable, isolated, disabled, locked out, or under maintenance -> no_charge_window. Discharge being forbidden, held, blocked, or "must not discharge" -> no_discharge_window.
+8. If a note is relevant but you cannot determine a concrete hour window or number, return no_op rather than guessing.
+9. applies is true for every directive except no_op, where it is false. no_op must have applies=false and structured_adjustment=null.
+10. Do NOT change base demand, solar, tariff, or battery parameters. Only extract what the note says.
 
 Respond with JSON only, matching the provided schema."""
 
