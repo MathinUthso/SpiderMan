@@ -298,9 +298,7 @@ final battery_energy_after_kwh (hour 23) = initial_energy_kwh
 
 ---
 
-## 9. Optimization Objective & Formulation
-
-### 9.1 Objective
+## 9. Optimization Objective
 
 After applying all valid directive adjustments, minimize total grid electricity cost:
 
@@ -309,64 +307,6 @@ total_cost_bdt = SUM( grid_kwh[h] * tariff_bdt_per_kwh[h] )   for h = 0..23
 ```
 
 Lower cost is better, **but a low-cost schedule is invalid if it breaks any energy, battery, or operator-directive rule.**
-
-### 9.2 Decision Variables (per hour h = 0..23)
-
-| Variable | Meaning |
-|---|---|
-| `grid_kwh[h]` | Grid energy purchased |
-| `solar_used_kwh[h]` | Solar energy consumed |
-| `battery_charge_kwh[h]` | Energy charged into battery |
-| `battery_discharge_kwh[h]` | Energy discharged from battery |
-| `battery_energy_after_kwh[h]` | State of charge after hour h |
-
-### 9.3 Core Constraints (every hour)
-
-1. **Energy balance:**
-   ```
-   grid_kwh[h] + solar_used_kwh[h] + battery_discharge_kwh[h]
-     = demand_kwh[h] + battery_charge_kwh[h]
-   ```
-
-2. **Solar bound:**
-   ```
-   0 <= solar_used_kwh[h] <= effective_solar_kwh[h]
-   ```
-
-3. **Battery dynamics:**
-   ```
-   E_after[h] = E_after[h-1] + charge[h] - discharge[h]
-   ```
-   For h=0, `E_after[-1]` is replaced by `initial_energy_kwh`.
-
-4. **Battery bounds:**
-   ```
-   minimum_energy_kwh <= E_after[h] <= capacity_kwh
-   ```
-
-5. **Rate limits:**
-   ```
-   charge[h] <= max_charge_kwh_per_hour
-   discharge[h] <= max_discharge_kwh_per_hour
-   ```
-
-6. **Non-negativity:** all variables >= 0
-
-7. **End-of-day neutrality:**
-   ```
-   E_after[23] = initial_energy_kwh
-   ```
-
-### 9.4 Directive Effects on the Optimizer
-
-| Directive | Deterministic constraint added |
-|---|---|
-| `solar_reduction` | `effective_solar_kwh[h] = solar_kwh[h] * factor` for each listed hour |
-| `minimum_battery_reserve` | `battery_energy_after_kwh[h] >= max(base_minimum_energy_kwh, directive_minimum_energy_kwh)` for each listed hour |
-| `no_charge_window` | `battery_charge_kwh[h] = 0` for each listed hour |
-| `no_discharge_window` | `battery_discharge_kwh[h] = 0` for each listed hour |
-| `max_grid_window` | `grid_kwh[h] <= max_grid_kwh` for each listed hour |
-| `no_op` | No change to the optimization model |
 
 ---
 

@@ -236,6 +236,66 @@ If you accumulate totals inside the solver and then round, clamp, or adjust `hou
 
 **Defence:** serialize `hourly_plan` first, then derive all three of `total_grid_kwh`, `total_cost_bdt`, `peak_grid_kwh` by iterating the serialized array. Round the plan values *before* summing, so your arithmetic matches the judge's on identical inputs.
 
+### 🟡 T10b. SAMPLE-06 cannot detect an inverted `solar_reduction` factor
+
+The `factor`-means-*remaining* convention (T/spec §4.1) is the most commonly inverted rule in the challenge. I tested using `1 − factor` by mistake:
+
+| Case | Factor | Correct optimum | With inverted factor | Detectable? |
+|---|---|---|---|---|
+| SAMPLE-01 | 0.25 | 38,365 | 35,825 | yes (−2,540) |
+| SAMPLE-09 | 0.2 | 34,873 | 28,802 | yes (−6,071) |
+| **SAMPLE-06** | **0.5** | **34,090** | **34,090** | **NO — identical** |
+
+SAMPLE-06's factor is exactly 0.5, and `1 − 0.5 = 0.5`. A team that happens to test on SAMPLE-06 gets a perfect result while holding the convention backwards.
+
+**Defence:** always test the inversion on a factor ≠ 0.5. Note also that inverting makes plans look *cheaper* — see T7c: cheaper than the reference means a bug.
+
+---
+
+### 🟡 T10c. The base `minimum_energy_kwh` applies to **every** hour — the spec never quite says so
+
+Problem Statement §9.2 reads: *"`minimum_energy_kwh <= E_after <= capacity_kwh`. If a `minimum_battery_reserve` directive is active, its reserve may be higher than the base minimum for those hours."* It never explicitly states the base minimum binds in **all 24 hours** rather than only at hour 23 or only inside reserve windows.
+
+Ground truth is all-hours — that's the only reading under which all 10 references are optimal (verified). The ambiguity is worth real money if you get it wrong:
+
+| Case | Correct optimum | Base minimum ignored | Understated by |
+|---|---|---|---|
+| SAMPLE-09 | 34,873 | 34,393 | **480** |
+| SAMPLE-02 | 42,885 | 42,435 | **450** |
+| SAMPLE-05 | 33,950 | 33,590 | **360** |
+| SAMPLE-06 | 34,090 | 33,750 | **340** |
+| SAMPLE-01 | 38,365 | 38,045 | **320** |
+| SAMPLE-08 | 37,665 | 37,445 | **220** |
+| SAMPLE-04 | 40,495 | 40,375 | **120** |
+| SAMPLE-03 / 07 / 10 | — | — | 0 (reserve dominates) |
+
+**The cruel structure:** the three cases that *have* a reserve directive (03/07/10) are exactly the three where the base minimum is non-binding — so they can't catch this bug. And the seven that can catch it have no reserve directive to draw your attention to reserve logic at all.
+
+---
+
+### 🟡 T10d. `peak_grid_kwh` is not invariant across equally-optimal plans
+
+`total_grid_kwh` is uniquely determined at optimal cost in all 10 cases, but `peak_grid_kwh` is **not**. Two cases admit a fully-valid alternate plan at *identical* cost and identical total grid, with a higher peak:
+
+- **SAMPLE-01:** reference peak 175; an alternate optimum has h13 grid = 187.5 → peak **187.5**. (h13 grid is free in [152.5, 187.5].)
+- **SAMPLE-09:** reference peak 170; an alternate optimum has h13 grid = 187 → peak **187.0**. (h13 free in [127, 187].)
+
+The reference happens to be the *minimum*-peak representative. A judge comparing your `peak_grid_kwh` against the reference value would reject valid equal-cost submissions — but the spec only requires `peak_grid_kwh` to be **self-consistent with your own plan**, and `equivalence_note` accepts equal-cost alternatives.
+
+**Defence:** nothing to fix, but don't be alarmed if your peak differs from the public reference at matching cost — that's legal. Just make sure it matches *your* plan (T10). If you want to hedge against a naive judge, break optimal-cost ties toward the lower peak; it costs nothing.
+
+---
+
+### 🟡 T10e. Multiple optimal schedules exist in **every** case — tie-heavy by construction
+
+Every case has 3–7 hours where `grid_kwh` can vary across a range at unchanged optimal cost (e.g. SAMPLE-04 h1 ∈ [55,145] with reference 90; SAMPLE-01 h0 ∈ [40,100] with reference 90). Battery throughput varies enormously at identical cost — SAMPLE-10 ranges [670, 2450] kWh.
+
+The flexibility clusters on **tariff-tie hours**, and ties are pervasive: every case has 5–7 groups of equal tariffs (SAMPLE-01: tariff 6 at h{0,1,5}, tariff 5 at h{2,3,4}, tariff 14 at h{9,13,15}). SAMPLE-06 even ties the evening peak (tariff 27 at both h18 and h20).
+
+**Defence:** never diff your schedule against the reference plan hour-by-hour when self-testing — compare **cost** (and validity). Matching the reference's exact action sequence is neither required nor achievable in general.
+
+---
+
 ### 🟡 T11. Float dust from `factor` multiplication
 
 `effective_solar = solar × factor` can produce values that aren't representable. The 0.01 tolerance protects you *if the judge applies it symmetrically*, but a strict `solar_used <= effective_solar` check fails on `52.000000000000007 <= 52.0`.
@@ -267,6 +327,31 @@ These are *regularities in the 10 public cases that the spec never promises.* Ev
 | 🔵 **T17** | Every reserve directive is strictly **above** base minimum | The `max(base, directive)` branch where the directive is *lower* is never exercised. See T6. |
 | 🔵 **T18** | `demand > 0` in every hour of every case | A zero-demand hour (plausible hidden edge) can break solvers that divide by demand or assume grid > 0. |
 | 🔵 **T19** | Only 8 of 10 cases have a `no_op`; max 3 notes, and **no case has two notes of the same directive type** | Two overlapping `no_charge_window`s, or two reserves with different values on overlapping hours, would need union/max merging logic you've never tested. The spec permits 1–3 notes with no distinctness guarantee. |
+| 🔵 **T20** | **No solar in any night hour** (h0–h5, h20–h23 are 0 in all 10 cases) | Solar is nonzero only h6–h17. Code that implicitly assumes "night = no solar" is untested against a hidden case with different generation. |
+| 🔵 **T21** | `initial_energy_kwh == capacity/2` in exactly 4 of 10 (S-01, 05, 08, 09) | Just close enough to look like a rule. It isn't — S-02 is 70/200, S-07 is 150/250. |
+| 🔵 **T22** | The two nastiest directive interactions are **absent**: no `no_discharge` inside a reserve window, and no grid cap inside a `no_discharge` window | These are the combinations that could create genuine infeasibility pressure. The pack gives you **no example to test conflict handling against**, while promising hidden cases won't be contradictory. Only reserve × grid-cap overlaps appear (S-07 h[19,20], S-10 h[19,20,21]). |
+| 🔵 **T23** | The JSON uses non-ASCII punctuation (em-dash U+2014, middot U+00B7) in `_meta` | On Windows, `open(path)` without `encoding='utf-8'` gives mojibake (`â€"`, `Â·`). An environment trap, not a data error — but it will corrupt your test harness output. |
+
+### 🔵 T19b. An end-inclusive off-by-one is **invisible in 4 specific places**
+
+Reading windows as end-*inclusive* (the most likely interpretation error) changes the optimum in most cases — so it's usually detectable:
+
+| Case | Correct | End-inclusive | Δ |
+|---|---|---|---|
+| SAMPLE-09 | 34,873 | 36,849 | +1,976 |
+| SAMPLE-06 | 34,090 | 35,740 | +1,650 |
+| SAMPLE-01 | 38,365 | 39,730 | +1,365 |
+| SAMPLE-04 | 40,495 | 41,285 | +790 |
+| SAMPLE-08 | 37,665 | 38,415 | +750 |
+| SAMPLE-03 | 35,480 | 35,880 | +400 |
+| SAMPLE-05 | 33,950 | 34,030 | +80 |
+| SAMPLE-02 | 42,885 | 42,960 | +75 |
+| SAMPLE-07 | 38,550 | 38,590 | +40 |
+| SAMPLE-10 | 41,620 | 41,635 | +15 |
+
+Note how small the margin gets: **SAMPLE-10 is only 15 BDT and SAMPLE-07 only 40 BDT** — a gap easily dismissed as rounding noise. And per-directive, the extra hour is *completely free* (+0) in four places: S-06's `no_charge` [14,15]→16, S-07's reserve [18–21]→22, S-08's `no_charge` [11,12]→13, and S-10's cap [19–21]→22.
+
+**Defence:** assert the window arithmetic directly against the note text in unit tests, rather than inferring correctness from cost.
 
 **Verified:** solar *does* exceed demand in SAMPLE-06 (h11–13) and SAMPLE-09 (h10–14) — e.g. SAMPLE-09 h12 has 260 kWh solar against 180 kWh demand. At SAMPLE-09 h10 the reference sets `solar_used=180 > demand=165`, `grid=0`, and charges the 15 kWh surplus into the battery. So surplus solar already appears, but it is always fully absorbable. **Curtailment is never yet forced** — T14 remains untested territory.
 
@@ -293,6 +378,19 @@ So you know which claims here are measured rather than reasoned:
 
 5. **Greedy fails neutrality 10/10** — the measured table in T4.
 
+6. **Sensitivity tests, each re-solved with one rule removed or broken.** All figures below are from my own solver and were independently reproduced by a second, exact-rational simplex implementation:
+   - Grid caps non-binding: Δ0 in all 3 cases (T7b)
+   - SAMPLE-08 `no_charge` non-binding: Δ0 (T7b)
+   - Ignoring all directives is cheaper in 9/10, equal in 1 → ratio clamps to 1.0 everywhere (T7c)
+   - Base minimum ignored: understates cost 120–480 BDT in 7 cases (T10c)
+   - Neutrality dropped: understates cost 280–970 BDT in all 10 (T4)
+   - Factor inverted: detectable except SAMPLE-06 (T10b)
+   - End-inclusive windows: +15 to +1,976 BDT (T19b)
+
+7. **Forced endgame.** `h23` charge is pinned to *exactly* the max charge rate in **9 of 10** cases (only SAMPLE-02 has slack, [40,55]) — the battery is drained into the evening peak and neutrality must be restored at the rate limit in h22–h23. SAMPLE-03/04/08 additionally force a full-rate **discharge** at h21, and SAMPLE-10 forces a discharge of ≥5 kWh at h22 (tariff 11) — counterintuitive, and exactly what a greedy "stop discharging after the peak" rule misses.
+
+8. **Inputs are 100% integers** (all 240 demand, solar, and tariff values). Demand and solar are multiples of 5; **tariffs are not** (4,6,7,8,9,11,… all appear). Only **two** cases have any non-integer in the reference plan, and the sole half-integer in the entire pack is SAMPLE-01 h13 (`grid 152.5`, `solar_used 42.5`). All 240 `battery_kwh` and all 240 `battery_energy_after_kwh` values are integers — so a **step-5 battery lattice reaches the exact optimum in all 10 cases** (verified). Fractional values enter only through the grid/solar split of reduced solar.
+
 ---
 
 ## Priority defence checklist
@@ -302,15 +400,21 @@ Ordered by expected points saved:
 1. **Neutrality as a hard in-solver constraint**, asserted before returning (T4)
 2. **LLM visibly produces `directive_interpretation`** — architecture, README, video (T2, T3)
 3. **One entry per note, indices `0..n-1`, asserted** — ignore §10.4's shape (T1)
-4. **Independent post-optimization replay** of the plan against parsed directives (T5)
-5. **Reserve applies to `E_after` of listed hours only, as `max(base, directive)`** (T6)
-6. **Inclusive comparisons** (`<=`, `>=`) on grid caps and reserves (T7)
-7. **Totals recomputed from the serialized plan**, after rounding (T10)
-8. **Exact `{"status":"ok"}`** on `/health` (T8)
-9. **Report but never optimize `peak_grid_kwh`** (T9)
-10. **Read `max_charge` and `max_discharge` separately; support curtailment; don't hardcode the hour-19 peak** (T13–T15)
-11. **Derive `idle`/`charge`/`discharge` from a tolerance-checked delta** (T12)
-12. **Round outputs to 2dp, clamp `solar_used` to effective solar** (T11)
+4. **Base `minimum_energy_kwh` enforced in all 24 hours**, floor = `max(base, directive)` (T10c, T6)
+5. **Independent post-optimization replay** of the plan against parsed directives (T5)
+6. **Unit-test grid caps and `no_charge` on synthetic binding cases** — public data cannot exercise them (T7b)
+7. **Treat "cheaper than the reference" as a bug signal, not a win** (T7c)
+8. **Reserve applies to `E_after` of listed hours only** — release it after the window (T6)
+9. **Inclusive comparisons** (`<=`, `>=`) on grid caps and reserves (T7)
+10. **Test factor inversion on a factor ≠ 0.5** (T10b)
+11. **Totals recomputed from the serialized plan**, after rounding (T10)
+12. **Exact `{"status":"ok"}`** on `/health` (T8)
+13. **Report but never optimize `peak_grid_kwh`**; break cost ties toward lower peak (T9, T10d)
+14. **Read `max_charge` and `max_discharge` separately; support curtailment; don't hardcode the hour-19 peak** (T13–T15)
+15. **Derive `idle`/`charge`/`discharge` from a tolerance-checked delta** (T12)
+16. **Round outputs to 2dp, clamp `solar_used` to effective solar** (T11)
+17. **Self-test on cost + validity, never by diffing the reference schedule** (T10e)
+18. **Open the JSON with `encoding='utf-8'`** (T23)
 
 ---
 
